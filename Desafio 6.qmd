@@ -1,0 +1,137 @@
+---
+title: "Desafio 6"
+output: pdf_document
+editor: visual
+---
+
+## Desafio 6
+
+#Leitura da biblioteca e conectando com a base de dados
+
+```{r}
+library(RSQLite)
+conn = dbConnect(SQLite(), "../Downloads/disco.db")
+conn
+```
+
+#Vendo as variáveis do banco de dados
+
+```{r}
+dbListTables(conn)
+```
+
+#Clientes cadastrados
+
+```{r}
+dbListTables(conn, "customers")
+```
+
+#Total de clientes
+
+```{r}
+total_clientes <- "SELECT COUNT(*) AS total_clientes FROM customers;"
+total_clientes <- dbGetQuery(conn, total_clientes)
+total_clientes
+```
+
+#Quantos clientes existem por país?
+
+```{r}
+clientes_por_pais <- "SELECT Country, COUNT(*) AS contagem FROM customers GROUP BY Country ORDER BY contagem DESC;"
+clientes_por_pais <- dbGetQuery(conn, clientes_por_pais)
+clientes_por_pais
+```
+
+#Quais são os 5 países com mais clientes registrados?
+
+```{r}
+top5_paises <- "SELECT Country, COUNT(*) AS contagem FROM customers GROUP BY Country ORDER BY contagem DESC LIMIT 5;"
+top5_paises <- dbGetQuery(conn, top5_paises)
+top5_paises
+```
+
+#Quais são os países registrados que possuem apenas 6 letras no nome?
+
+```{r}
+paises_6_letras <- "SELECT DISTINCT Country FROM customers WHERE LENGTH(Country) = 6;"
+paises_6_letras <- dbGetQuery(conn, paises_6_letras)
+paises_6_letras
+```
+
+#Quais foram as músicas compradas por clientes brasileiros?
+
+```{r}
+query_musicas_brasil <- "SELECT t.Name AS Musica
+FROM customers c
+JOIN invoices i ON c.CustomerId = i.CustomerId
+JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+JOIN tracks t ON ii.TrackId = t.TrackId
+WHERE c.Country = 'Brazil';"
+musicas_brasil <- dbGetQuery(conn, query_musicas_brasil)
+musicas_brasil
+```
+
+#Qual o álbum mais tocado por pais?
+
+```{r}
+query_album_mais_tocado <- "
+WITH VendasPorAlbumPais AS (
+  SELECT
+    c.Country,
+    al.Title AS Album,
+    SUM(ii.Quantity) AS TotalVendas
+  FROM customers c
+  JOIN invoices i ON c.CustomerId = i.CustomerId
+  JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+  JOIN tracks t ON ii.TrackId = t.TrackId
+  JOIN albums al ON t.AlbumId = al.AlbumId
+  GROUP BY c.Country, al.Title
+),
+RankingVendas AS (
+  SELECT
+    Country,
+    Album,
+    TotalVendas,
+    ROW_NUMBER() OVER(PARTITION BY Country ORDER BY TotalVendas DESC) as Rank
+  FROM VendasPorAlbumPais
+)
+SELECT Country, Album, TotalVendas
+FROM RankingVendas
+WHERE Rank = 1;"
+album_mais_tocado <- dbGetQuery(conn, query_album_mais_tocado)
+
+album_mais_tocado
+```
+
+Qual o artista mais tocado por pais?
+
+```{r}
+query_artista_mais_tocado <- "
+WITH VendasPorArtistaPais AS (
+  SELECT
+    c.Country,
+    ar.Name AS Artista,
+    SUM(ii.Quantity) AS TotalVendas
+  FROM customers c
+  JOIN invoices i ON c.CustomerId = i.CustomerId
+  JOIN invoice_items ii ON i.InvoiceId = ii.InvoiceId
+  JOIN tracks t ON ii.TrackId = t.TrackId
+  JOIN albums al ON t.AlbumId = al.AlbumId
+  JOIN artists ar ON al.ArtistId = ar.ArtistId
+  GROUP BY c.Country, ar.Name
+),
+RankingVendasArtistas AS (
+  SELECT
+    Country,
+    Artista,
+    TotalVendas,
+    ROW_NUMBER() OVER(PARTITION BY Country ORDER BY TotalVendas DESC) as Rank
+  FROM VendasPorArtistaPais
+)
+SELECT Country, Artista, TotalVendas
+FROM RankingVendasArtistas
+WHERE Rank = 1;"
+artista_mais_tocado <- dbGetQuery(conn, query_artista_mais_tocado)
+
+artista_mais_tocado
+```
