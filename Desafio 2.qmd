@@ -1,0 +1,105 @@
+---
+title: "Desafio 2- ME315"
+author: "Bianca da Silva, ra 236056"
+format: html
+editor: visual
+---
+
+## Desafio 2
+
+O desafio dois tem como o propósito converter o código do laboratório 2, executado em liguagem R, para a linguagem python.
+
+## Código
+
+Carregando as biblioteca em python, o pandas é para manipulação de dados, numpy para cálculos, matplotlib.pyplot gráficos simples, e o calplot trabalha como o ggcal, ou seja, essa biblioteca produz gráficos em modelo de calendário.
+
+```{python}
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import calplot
+
+```
+
+Lendo o banco de dados
+
+```{python}
+
+dados = pd.read_csv("~/ME315/lab2/dados.zip")
+print(dados.head())
+
+```
+
+O código a baixo, tem as função criadas para a execução de cálculos e filtros, para a produção do gráfico ao final das analise, como feito em R
+
+```{python}
+
+def get_stats(df):
+    df = df[df["AIRLINE"].isin(["AA", "DL", "UA", "US"])]
+    df = df.dropna(subset=["YEAR", "MONTH", "DAY", "AIRLINE", "ARRIVAL_DELAY"])
+    
+    grouped = (
+        df.groupby(["DAY", "MONTH", "YEAR", "AIRLINE"])
+          .agg(voos=("ARRIVAL_DELAY", "size"),
+               atrasos=("ARRIVAL_DELAY", lambda x: (x > 10).sum()))
+          .reset_index()
+    )
+    return grouped
+
+#Lendo os chucks do banco de dados
+
+chunksize = 10**6
+parciais_list = []
+
+for chunk in pd.read_csv("~/ME315/lab2/flights.csv",
+                         usecols=["YEAR","MONTH","DAY","AIRLINE","ARRIVAL_DELAY"],
+                         chunksize=chunksize):
+    parciais_list.append(get_stats(chunk))
+
+parciais = pd.concat(parciais_list, ignore_index=True)
+
+print(parciais.head())
+
+# Verificando se há linhas duplicadas e juntando, mantendo apenas uma caso tenha repetição
+
+verificando = (
+    parciais.groupby(["DAY","MONTH","YEAR","AIRLINE"])
+    .size().reset_index(name="n_vezes")
+    .query("n_vezes > 1")
+)
+print(verificando)
+
+# filtrando dados da companhia do dia 06 como feito em R
+
+print(parciais.query("DAY == 6 and MONTH == 9 and AIRLINE == 'AA'"))
+
+# A mesma função computeStats feita em R, para a calcular os atrasos dos voos e percentual
+
+def computeStats(df):
+    grouped = (
+        df.groupby(["DAY","MONTH","YEAR","AIRLINE"])
+          .agg(p_atrasos=("atrasos", "sum"), voos=("voos","sum"))
+          .reset_index()
+    )
+    grouped["percentual"] = grouped["p_atrasos"] / grouped["voos"]
+    grouped["data"] = pd.to_datetime(dict(year=grouped.YEAR, month=grouped.MONTH, day=grouped.DAY))
+    grouped = grouped.rename(columns={"AIRLINE": "cia"})
+    return grouped[["cia","data","percentual"]]
+
+#tabela dos percentuais 
+
+finais = computeStats(parciais)
+
+```
+
+Criação do gráfico, com o pacote calplot que funciona tal como o ggcal do R, para a produção de gráficos estilo calendário
+
+```{python}
+#filtrando e usando os dados da companhia AA, e gerando o gráfico
+aa = finais.query("cia == 'AA'")
+
+calplot.calplot(aa.set_index("data")["percentual"])
+plt.show()
+
+```
