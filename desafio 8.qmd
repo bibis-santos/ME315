@@ -1,0 +1,123 @@
+---
+title: "Desafio 8"
+format: html
+editor: visual
+date: "`r format(Sys.time(), '%d/%m/%Y %H:%M:%S')`"
+---
+
+## Desafio 8
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+library(dbplyr)
+```
+
+```{r}
+conn <- dbConnect(SQLite(), "uwmadison.sqlite3")
+```
+
+```{r}
+# WHERE subjects.abbreviation = 'STAT' AND instructors.name GLOB 'GUILHERME*'"
+
+sql <- "SELECT DISTINCT id, instructors.name FROM instructors
+        INNER JOIN teachings ON instructors.id = teachings.instructor_id
+        INNER JOIN sections ON sections.uuid = teachings.section_uuid
+        INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid
+        INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+        WHERE subjects.abbreviation = 'STAT'"
+```
+
+```{r}
+dbGetQuery(conn, sql)
+```
+
+```{r}
+prof_dificil <- "SELECT DISTINCT id, instructors.name,
+  AVG ((a_count * 4 + ab_count * 3.5 + b_count * 3 + bc_count * 2.5 + c_count * 2 + d_count * 1 + f_count * 0) / (a_count + ab_count + b_count + bc_count + c_count + d_count + f_count))
+  AS nota_media
+  FROM instructors
+  INNER JOIN teachings ON instructors.id = teachings.instructor_id
+  INNER JOIN sections ON sections.uuid = teachings.section_uuid
+  INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid
+  INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+  INNER JOIN grade_distributions ON sections.course_offering_uuid = grade_distributions.course_offering_uuid
+  GROUP BY instructors.id
+  HAVING subjects.abbreviation = 'STAT' AND nota_media != 'NA'
+  ORDER BY nota_media
+  LIMIT 5"
+
+dbGetQuery(conn, prof_dificil)
+```
+
+```{r}
+prof_facil <- "SELECT DISTINCT id, instructors.name,
+  AVG ((a_count * 4 + ab_count * 3.5 + b_count * 3 + bc_count * 2.5 + c_count * 2 + d_count * 1 + f_count * 0) / (a_count + ab_count + b_count + bc_count + c_count + d_count + f_count))
+  AS nota_media
+  FROM instructors
+  INNER JOIN teachings ON instructors.id = teachings.instructor_id
+  INNER JOIN sections ON sections.uuid = teachings.section_uuid
+  INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid
+  INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+  INNER JOIN grade_distributions ON sections.course_offering_uuid = grade_distributions.course_offering_uuid
+  GROUP BY instructors.id
+  HAVING subjects.abbreviation = 'STAT' AND nota_media != 'NA'
+  ORDER BY nota_media DESC
+  LIMIT 5"
+
+dbGetQuery(conn, prof_facil)
+```
+
+```{r}
+dbListFields(conn, "courses")
+```
+
+```{r}
+materia_dificil <- "SELECT courses.number, courses.name,
+  AVG((a_count * 4 + ab_count * 3.5 + b_count * 3 + bc_count * 2.5 + c_count * 2 + d_count * 1 + f_count * 0) / (a_count + ab_count + b_count + bc_count + c_count + d_count + f_count))
+  AS nota_media
+  FROM courses
+  INNER JOIN course_offerings ON course_offerings.uuid = courses.uuid
+  INNER JOIN grade_distributions ON course_offerings.uuid = grade_distributions.course_offering_uuid
+  INNER JOIN teachings ON course_offerings.uuid = teachings.section_uuid
+  INNER JOIN instructors ON instructors.id = teachings.instructor_id
+  INNER JOIN sections ON sections.uuid = teachings.section_uuid
+  INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid
+  INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+  GROUP BY courses.name
+  HAVING subjects.abbreviation = 'STAT' AND nota_media != 'NA'
+  ORDER BY nota_media
+  LIMIT 5"
+
+dbGetQuery(conn, materia_dificil)
+```
+
+```{r}
+materia_facil <- "SELECT courses.number, courses.name,
+  AVG((a_count * 4 + ab_count * 3.5 + b_count * 3 + bc_count * 2.5 + c_count * 2 + d_count * 1 + f_count * 0) / (a_count + ab_count + b_count + bc_count + c_count + d_count + f_count))
+  AS nota_media
+  FROM courses
+  INNER JOIN course_offerings ON course_offerings.uuid = courses.uuid
+  INNER JOIN grade_distributions ON course_offerings.uuid = grade_distributions.course_offering_uuid
+  INNER JOIN teachings ON course_offerings.uuid = teachings.section_uuid
+  INNER JOIN instructors ON instructors.id = teachings.instructor_id
+  INNER JOIN sections ON sections.uuid = teachings.section_uuid
+  INNER JOIN subject_memberships ON subject_memberships.course_offering_uuid = sections.course_offering_uuid
+  INNER JOIN subjects ON subjects.code = subject_memberships.subject_code
+  GROUP BY courses.name
+  HAVING subjects.abbreviation = 'STAT' AND nota_media != 'NA'
+  ORDER BY nota_media DESC
+  LIMIT 5"
+
+dbGetQuery(conn, materia_facil)
+```
+
+
+
+
+
+
+
+
+
+
