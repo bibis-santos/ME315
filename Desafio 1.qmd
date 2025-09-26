@@ -1,0 +1,36 @@
+---
+title: "Desafio 1"
+format: html
+editor: visual
+---
+
+## Desafio 1
+
+#Leitura em read.csv
+```{r}
+inicio <- Sys.time()
+dados <- read.csv(c('/Documentos/flights.csv.zip', "flights.csv"))
+fim <- Sys.time()
+fim - inicio
+```
+
+#Leitura em read_csv
+```{r}
+library(readr)
+inicio <- Sys.time()
+dados <- read_csv(c('/Documentos/flights.csv.zip', "flights.csv"))
+fim <- Sys.time()
+fim - inicio
+```
+
+#Leitura em Python
+```{python}
+import time
+import pandas as pd
+inicio = time.time()
+dados = pd.read_csv('/Documentos/flights.csv.zip', compression = "zip", header = 0, sep = ",", low_memory = False)
+fim = time.time()
+fim - inicio
+```
+
+
