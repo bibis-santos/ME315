@@ -1,0 +1,145 @@
+---
+title: "desafio 11"
+format: html
+editor: visual
+---
+
+## Desafio 11
+
+Execultar o desafio 11 em python, usando o polars
+
+## Execultando o desafio
+
+```{python}
+import polars as pl
+```
+
+#Importando os dados
+
+```{python}
+renda = pl.read_csv('renda_adulta.csv.gz',
+                    has_header = False,
+                    columns = ["column_15", "column_10", "column_13", "column_7"],
+                    null_values = "?")
+
+renda = renda.rename({"column_15": "income",
+                      "column_10": "sex",
+                      "column_13": "hours-per-week",
+                      "column_7": "occupation"})
+                      
+print(renda)                      
+```
+
+# Apresentando os tipos de cada coluna e dimensão da tabela de dados
+
+```{python}
+tipo_col = renda.dtypes
+
+print(tipo_col)
+```
+
+```{python}
+n_col_line = renda.shape
+
+print(n_col_line)
+```
+
+#Niveis salarias 50K
+
+```{python}
+nivel_salarial = renda.group_by("income").len()
+
+print(nivel_salarial)
+```
+
+#Média de horas trabalhadas
+
+```{python}
+horas_medias = renda.group_by("income").agg(pl.col("hours-per-week").mean().alias("horas_medias"))
+
+print(horas_medias)
+```
+# Apresentando as professões 
+
+```{python}
+(
+    renda.drop_nulls("occupation")
+    .group_by("occupation")
+    .len().rename({"len": "n"})
+    .sort("n", descending = True)
+)
+```
+
+#Gráfico de barras
+
+```{python}
+from plotnine import ggplot, aes, geom_bar, theme_bw, labs
+
+
+(
+    ggplot(horas_medias,
+       aes(x = "income", y = "horas_medias", fill = "income")) +
+       geom_bar(stat = "identity") +
+    labs(x = "Salário anual", y = "Horas semanais trabalhadas") +
+    theme_bw()
+)
+```
+#Existe alguma evidência de discriminação salarial entre gêneros biológicos?
+Fazendo códico para analisar se há evidencias.
+
+```{python}
+tabela_genero_renda = renda.select(
+    pl.col("sex"),
+    pl.col("income")).crosstab()
+      
+print(tabela_genero_renda)
+```
+
+```{python}
+proporcao_genero_renda = (
+    tabela_genero_renda
+    .with_columns(
+        (pl.col(" <=50K") / (pl.col(" <=50K") + pl.col(" >50K"))).alias("perc_<=50K"),
+        (pl.col(" >50K") / (pl.col(" <=50K") + pl.col(" >50K"))).alias("perc_>50K")
+    )
+)
+
+print(proporcao_genero_renda)
+```
+
+```{python}
+horas_por_genero = renda.group_by("sex").agg(
+    pl.col("hours-per-week").mean().alias("media_horas_semanais")
+)
+
+print(horas_por_genero)
+```
+
+```{python}
+analise = renda.group_by(["sex", "income"]).agg(
+    pl.col("hours-per-week").mean().alias("media_horas_semanais")
+).sort("sex", "income")
+
+print(analise)
+```
+
+#Visualização em grafico
+
+```{python}
+from plotnine import ggplot, aes, geom_bar, theme_bw, labs, position_dodge
+
+# Criando um gráfico de barras para comparar a distribuição de renda por gênero
+(
+    ggplot(renda.drop_nulls(), aes(x = "sex", fill = "income")) +
+    geom_bar(position = "dodge") + # 'dodge' coloca as barras lado a lado
+    labs(
+        title = "Distribuição de Renda por Gênero",
+        x = "Gênero",
+        y = "Contagem de Indivíduos",
+        fill = "Faixa de Renda Anual"
+    ) +
+    theme_bw()
+)
+```
+
+
