@@ -1,0 +1,81 @@
+---
+title: "Desafio 13"
+format: html
+editor: visual
+---
+
+## Desafio 13
+
+Usando SQLite com Polars
+
+## Código
+
+```{python}
+import polars as pl
+```
+
+```{python}
+basics = pl.read_csv("title.ratings.tsv", 
+                            separator = "\t", null_values = "\\N")
+```
+
+```{python}
+print(basics)
+```
+
+```{python}
+ratings = pl.read_csv("title.ratings.tsv.gz",
+                      separator = "\t", null_values = "\\N")
+```
+
+```{python}
+print(ratings)
+```
+
+```{python}
+principals = pl.read_csv(title.principals0.tsv.gz",
+                           separator = "\t", null_values = "\\N", n_rows = 2000000)
+```
+
+```{python}
+print(principals)
+```
+
+Quais são os 5 filmes com as maiores notas (averageRating)? Apresente uma solução capaz de desempatar os filmes baseando-se no número de votos recebidos.
+
+```{python}
+(
+    ratings.sort(["averageRating", "numVotes"], descending = True).head(5)
+    .join(basics, on = "tconst", how = "inner")
+    .select(["primaryTitle", "averageRating", "numVotes"])
+)
+```
+
+Qual é o gênero mais frequente entre os filmes com nota maior que 8?
+
+```{python}
+(
+    ratings.filter(pl.col("averageRating") > 8)
+    .join(basics.filter(pl.col("titleType") == "movie"), on = "tconst", how = "inner")
+    .group_by("genres").len()
+    .sort("len", descending = True)
+    .head(1)
+)
+```
+
+Quais são os 3 atores/atrizes que mais participaram de filmes com nota maior que 7.5?
+
+```{python}
+(
+    ratings.filter(pl.col("averageRating") > 7.5)
+    .join(basics.filter(pl.col("titleType") == "movie"), on = "tconst", how = "inner")
+    .select("tconst")
+    .join(principals.filter(pl.col("category").is_in(["actor", "actress"])), on = "tconst", how = "inner")
+    .group_by("nconst").len()
+    .sort("len", descending = True)
+    .head(3)
+)
+```
+
+
+
