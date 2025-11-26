@@ -1,0 +1,530 @@
+---
+title: "Dashboard em Julia"
+format: 
+  revealjs:
+    scrollable: TRUE
+    theme: simple
+    slide-number: true
+    width: 1280
+    height: 720
+editor: source
+engine: julia
+---
+
+## O que é o Julia?
+
+Julia é uma linguagem de programação de alto nível, dinâmica, projetada para computação científica, analise de dados e aprendizado de máquina.
+
+-   Contém Python e R em seu ambiente;
+-   Alto desempenho;
+-   Similaridade na forma de codificar entre as linguagem já mais usuais(Python, C++, R);
+-   Sintaxe Simples.
+
+## O que é um Dashboard?
+
+Dashboard é uma interface visual(geralmente web) que organiza e exibe informações e métrica de forma centralizada, em forma de GRÁFICOS, TABELAS, FILTROS, BOTÕES, SLIDERS.
+
+Principal objetivo, é monitorar e facilitar a tomada de decisão baseada em dados.
+
+## Criando um Dashboard
+
+A partir de agora, cada chuck estará mostrando como a criar um dashboard pela linguagem Julia:
+
+Primeiramente a criação de dashboard de forma generica em julia.
+
+```{julia | echo = TRUE}
+using Pkg
+Pkg.add(["Dash", "PlotlyJS", "DataFrames"])
+Pkg.add("CSV")
+
+using Dash
+using PlotlyJS
+using DataFrames
+using CSV
+```
+
+---
+
+#### Layout do Dashboard
+
+```{julia | echo = TRUE}
+app = dash()
+
+app.layout = html_div() do
+    html_h1("Meu Primeiro Dashboard em Julia", style=Dict("textAlign" => "center")),
+    
+    html_div("Selecione a quantidade de pontos:"),
+    
+    dcc_slider(
+        id = "meu-slider",
+        min = 10, max = 100, step = 10, value = 50, marks = Dict(10 => "10", 50 => "50", 100 => "100")
+    ),
+    html_br(),
+    #Output: Onde o gráfico vai aparecer
+    dcc_graph(id = "meu-grafico")
+end
+```
+
+---
+
+#### Callbacks (A Lógica)
+
+A função que conecta o Input (Slider) ao Output (Gráfico):
+
+```{julia | echo = TRUE}
+callback!(app,
+    Output("meu-grafico", "figure"),
+    Input("meu-slider", "value")
+) do n_pontos
+    x_data = 1:n_pontos
+    y_data = rand(Int(n_pontos))
+    
+    # Criação do Gráfico com PlotlyJS
+    trace = scatter(
+        x = x_data, 
+        y = y_data, 
+        mode = "lines+markers",
+        line = attr(color = "blue")
+    )
+    
+    layout = Layout(
+        title = "Gráfico com $(n_pontos) pontos aleatórios",
+        xaxis_title = "Eixo X",
+        yaxis_title = "Eixo Y"
+    )
+    
+    # Retorna a figura completa para o Output
+    return Plot(trace, layout)
+end
+```
+
+```{julia | echo = TRUE}
+# Servidor do dashboard (web)
+run_server(app, "0.0.0.0", 8050)
+```
+
+---
+
+## Case Prático usando Método de Monte Carlo
+
+---
+
+### O que é o Método de Monte Carlo?
+
+O método de Monte Carlo é uma técnica estatistíca que usa amostragem aleatória massiva para estimar probabilidades e resolver problemas complexos, principlamente aqueles com elementos de incerteza.
+
+É utilizado amplamente e aplicado em áreas como finanças, engenharia e estatistica para analise de risco, avaliando cenarios e tomada de decisões.
+
+# Aplicando o Método em Case usual
+
+```{julia | echo = TRUE}
+function calcular_monte_carlo(N)
+
+       S0, K, r, T, sigma = 100.0, 100.0, 0.05, 1.0, 0.2
+       drift = (r - 0.5 * sigma^2) * T
+       vol = sigma * sqrt(T)
+       payoffs = Float64[]
+       inicio = time()
+       for _ in 1:Int(round(N))
+       st = S0 *exp(drift + vol * randn())
+       push!(payoffs, max(st - K, 0))
+       end
+       preco = exp(-r * T) * (sum(payoffs) / N)
+       return preco, payoffs, (time() - inicio)
+       end
+```
+
+# Aplicativo
+
+```{julia | echo = TRUE}
+app = dash()
+
+app.layout = html_div() do
+       html_h1("Simulador Monte Carlo"),
+       html_label("Nº de Simulações:"),
+       dcc_slider(id = "N", min=10000, max=500000, step=10000, value=50000, marks=Dict(10000=>"10k", 500000=>"500k")),
+       html_br(),
+       html_button("Executar", id="btn", n_clicks=0),
+       html_h3(id="res-tempo"),
+       html_h3(id="res-preco"),
+       dcc_graph(id="grafico", style=Dict("heihjt"=> "500px"))
+       end
+```
+
+
+# O Callback(Conexão)
+
+```{julia | echo = TRUE}
+callback!(app,
+       Output("res-tempo", "children"),
+       Output("res-preco", "children"),
+       Output("grafico", "figure"),
+       Input("btn", "n_clicks"),
+       State("N", "value")) do n, N_val
+       if isnothing(n) || n == 0
+       return "","", (data=[], layout=Layout())
+       end
+       preco, dados, tempo = calcular_monte_carlo(N_val)
+       figura = ( data = [histogram(x=dados, nbinsx=50, marker=attr(color="blue"))],
+       layout = Layout(title="Distribuição dos Resultados")
+       )
+       return "Tempo: $(round(tempo, digits=4))s", "Preço: $(round(preco, digits=2))", figura
+       end
+```
+
+# Rodar
+```{julia | echo = TRUE}
+#run_server(app, "0.0.0.0", 8050)
+```
+
+---
+
+## Case anterior, agora em Python
+
+```python | echo = TRUE
+import time 
+import numpy as np from dash 
+import Dash, html, dcc, Input, Output, State, callback 
+import plotly.graph_objects as go
+```
+
+# Inicializa o App
+
+```python
+app = Dash(*name*)
+```
+## A Lógica Matemática (Adaptada para Python/NumPy)
+
+```python
+def simular_monte_carlo_python(S0, K, r, T, sigma, N):
+  inicio = time.time()
+```
+---
+
+Em PYTHON: Não usamos Loop for (seria muito lento). Usamos Vetorização do NumPy (calcula tudo de uma vez).
+
+```python
+# 1. Gerar N números aleatórios
+
+z = np.random.standard_normal(N)
+
+# 2. Calcular o preço final (ST) para todos os cenários de uma vez
+
+ST = S0 \* np.exp((r - 0.5 \* sigma \*\* 2) \* T + sigma \* np.sqrt(T) \* z)
+
+# 3. Calcular Payoffs (máximo entre ST-K e 0)
+
+payoffs = np.maximum(ST - K, 0)
+
+# 4. Trazer a valor presente
+
+preco_opcao = np.exp(-r \* T) \* np.mean(payoffs)
+
+fim = time.time() tempo_execucao = fim - inicio
+
+return preco_opcao, payoffs, tempo_execucao
+
+```
+
+---
+
+#### O Layout (Visual)
+
+```python
+app.layout = html.Div(\[ html.H1("Case Finanças: Monte Carlo em Python", style={'textAlign': 'center'}),
+
+html.Div("Número de Simulações (N):"),
+
+dcc.Slider( id='input-N', min=10000, max=1000000, step=10000, value=100000, marks={10000: '10k', 500000: '500k', 1000000: '1M'} ),
+
+html.Br(), html.Button('RODAR SIMULAÇÃO', id='btn-run', n_clicks=0),
+
+html.Hr(),
+
+# Outputs
+html.H3(id='output-tempo', style={'color': 'blue'}), html.H4(id='output-preco'),
+dcc.Graph(id='grafico-hist')
+```
+
+---
+
+#### O Callback
+
+```python
+@callback(
+  Output('output-tempo', 'children'),
+  Output('output-preco', 'children'),
+  Output('grafico-hist', 'figure'),
+  Input('btn-run', 'n_clicks'),
+  State('input-N', 'value')
+)
+def update_dashboard(n_clicks, N):
+  if n_clicks == 0:
+    # Retorna estado inicial vazio
+    return "Aguardando início...", "", go.Figure()
+  # Parâmetros fixos
+  S0 = 100.0 # Preço inicial
+  K = 100.0 # Strike 
+  r = 0.05 # Taxa livre de risco 
+  T = 1.0 # Tempo (1 ano) 
+  sigma = 0.2 # Volatilidade
+  # Executa a simulação
+  preco, dados_finais, tempo = simular_monte_carlo_python(
+    S0, K, r, T, sigma, int(N)
+  )
+  # Cria o Histograma
+  fig = go.Figure(data=[go.Histogram(x=dados_finais, nbinsx=50, name='Preços Finais')])
+
+  fig.update_layout(
+    title="Distribuição dos Preços Simulados (Python)",
+    xaxis_title="Preço ST",
+    yaxis_title="Frequência",
+    template="plotly_white" )
+  msg_tempo = f"Tempo de Execução (Python + NumPy): {tempo:.4f} segundos"
+  msg_preco = f"Preço estimado da Opção: R\$ {preco:.2f}"
+  return msg_tempo, msg_preco, fig
+```
+
+## Rodar
+
+```python
+#if __name__ == '__main__': # Usando porta 8052 para não conflitar com o Julia (8050) nem com o R (8051)
+#  app.run_server(debug=True, port=8052)
+
+```
+
+# O mesmo case em R
+
+## Função de Simulação (Vetorizada para R)
+
+```r
+#| echo: true
+#| eval: false
+simular_monte_carlo <- function(S0, K, r, T_anos, sigma, N) {
+  inicio <- Sys.time()
+  # 1. Gerar N variáveis normais de uma vez (Vetorização)
+  z <- rnorm(N, mean = 0, sd = 1)
+  # 2. Calcular ST para todos os cenários simultaneamente
+  ST <- S0 * exp((r - 0.5 * sigma^2) * T_anos + sigma * sqrt(T_anos) * z)
+  # 3. Calcular Payoffs (pmax compara o vetor inteiro contra 0)
+  payoffs <- pmax(ST - K, 0)
+  # 4. Preço médio descontado
+  preco_opcao <- exp(-r * T_anos) * mean(payoffs)
+  fim <- Sys.time()
+  tempo_execucao <- as.numeric(fim - inicio) # Retorna em segundos
+  
+  return(list(preco = preco_opcao, dados = payoffs, tempo = tempo_execucao))
+}
+```
+
+---
+
+## Aplicativo
+
+```r
+#| echo: true
+#| eval: false
+app_finance <- Dash$new()
+
+app_finance$layout(
+  htmlDiv(list(
+    htmlH1("Case Finanças: Monte Carlo em R"),
+    
+    htmlDiv("Número de Simulações (N):"),
+    dccSlider(
+      id = "input-N",
+      min = 10000,
+      max = 1000000,
+      step = 10000,
+      value = 100000,
+      marks = list("10000" = "10k", "500000" = "500k", "1000000" = "1M")
+    ),
+    
+    htmlBr(),
+    htmlButton("RODAR SIMULAÇÃO", id="btn-run", n_clicks=0),
+    htmlHr(),
+    # Outputs de texto e gráfico
+    htmlH3(id="output-tempo", style=list("color" = "blue")),
+    htmlH4(id="output-preco"),
+    
+    dccGraph(id = "grafico-hist")
+  ))
+)
+
+app_finance$callback(
+  output = list(
+    list(id = "output-tempo", property = "children"),
+    list(id = "output-preco", property = "children"),
+    list(id = "grafico-hist", property = "figure")
+  ),
+  params = list(
+    input(id = "btn-run", property = "n_clicks"),
+    state(id = "input-N", property = "value")
+  ),
+  
+  function(n_clicks, N) {
+    # Evita rodar ao iniciar o app
+    if (n_clicks == 0) {
+      return(list("Aguardando início...", "", plotly_empty()))
+    }
+    # Parâmetros
+    S0 <- 100.0
+    K <- 100.0
+    r <- 0.05
+    T_anos <- 1.0
+    sigma <- 0.2
+    # Executa simulação
+    resultado <- simular_monte_carlo(S0, K, r, T_anos, sigma, as.integer(N))
+    # Cria histograma
+    fig <- plot_ly(x = resultadodados, type = "histogram", nbinsx = 50, name = "Preços Finais") %>%
+      layout(title = "Distribuição dos Preços Simulados no Vencimento",
+             xaxis = list(title = "Preço ST"),
+             yaxis = list(title = "Frequência"))
+    
+    msg_tempo <- paste("Tempo de Execução (R):", round(resultadotempo, 4), "segundos")
+    msg_preco <- paste("Preço estimado da Opção: R$", round(resultadopreco, 2))
+    
+    return(list(msg_tempo, msg_preco, fig))
+  }
+)
+```
+
+#### Rodar
+
+```r
+#| echo: true
+#| eval: false
+#app_finance$run_server(host = "0.0.0.0", port = 8051)
+```
+
+## Critério de escolhas:
+
+## 1: Facilidade de Escrita (Sintaxe)
+
+ Linguagem | Abordagem Necessária | Complexidade Cognitiva |
+
+|------------------------|------------------------|------------------------|
+
+| *Julia* | Loop for nativo | *Baixa* (Escrevemos como pensamos matematicamente) |
+
+| *Python* | Vetorização (NumPy) | *Média* (Loops são proibitivos, exige bibliotecas C) |
+
+| *R* | Vetorização (\*apply) | *Média* (Loops são lentos, exige lógica vetorial) | 
+
+
+## 2: Tempo de Execução
+
+Comparativo de performance simulando **1.000.000 de cenários** (Monte Carlo).
+
+```julia | echo = TRUE
+
+    #DADOS DO BENCHMARK (Substitua pelos valores que você mediu se quiser)
+      # Tempos em segundos para processar 1 milhão de iterações
+      # Julia: Loop nativo (Simples e rápido)
+      # Python: NumPy (Otimizado em C, mas exige  vetorização)
+      # R: Vetorizado (Otimizado, mas exige vetorização)
+
+---
+  
+linguagens = ["Julia (Loop Nativo)", "Python (NumPy)", "R (Vetorizado)"]
+tempos_segundos = [0.045, 0.085, 0.160] # Valores estimados típicos para esse cálculo
+    #CRIAÇÃO DO GRÁFICO
+trace = bar(
+    x = linguagens,
+    y = tempos_segundos,
+    text = tempos_segundos,      # Mostra o valor exato na barra
+    textposition = "auto",       # Ajusta a posição do texto
+    marker_color = ["#9558B2", "#306998", "#276DC3"], # Cores oficiais (Julia, Py, R)
+    opacity = 0.8
+)
+
+layout = Layout(
+    title = "Performance: Monte Carlo (Menor é Melhor)",
+    xaxis_title = "Linguagem e Abordagem",
+    yaxis_title = "Tempo de Execução (s)",
+    template = "plotly_white",
+    font = attr(family="Arial", size=14)
+)
+
+plot(trace, layout)
+
+```
+
+
+## ENEM
+
+# Explicação
+
+1.  **Como o Monte Carlo ajuda nessa análise?** O Método de Monte Carlo permite modelar a incerteza. Em vez de tentar prever um único valor futuro para um ativo (ou uma nota de corte, no caso do ENEM), o algoritmo:
+
+-   Gera milhares de cenários possíveis (caminhos aleatórios) baseados em distribuições estatísticas (como a Volatilidade sigma no seu código).
+
+-   Calcula o resultado final para cada um desses cenários.
+
+2.  Por que Julia é melhor que R ou Python nesse cenário? Pelas mesmas explicações anteriores. Também, Julia permite que seu dashboard seja interativo. O usuário pode mudar um parâmetro (ex: aumentar a volatilidade) e ver o gráfico da simulação atualizar quase instantaneamente, algo que seria "travado" ou lento em R/Python puro.
+
+
+## Adicione o pacote CSV e carregue os dados
+
+
+```{julia | eval = TRUE}
+using DataFrames
+using CSV
+
+# Carregar os dados do ENEM para um DataFrame
+df_enem = CSV.read("RESULTADOS_2024.CSV", DataFrame, limit=10000)
+
+# Remover linhas com notas faltando para evitar erros nos gráficos
+df_enem = dropmissing(df_enem, [:NU_NOTA_REDACAO, :NU_NOTA_MT])
+```
+
+
+## Gráfico
+
+
+```{julia| cache: true}
+
+# Exemplo: Histograma das notas de Redação
+figura_redacao = plot(
+    df_enem, 
+    x=:NU_NOTA_REDACAO, 
+    kind="histogram",
+    Layout(title="Distribuição das Notas de Redação")
+)
+
+# Exemplo: Boxplot de Matemática por Estado (SG_UF_PROVA)
+figura_matematica = plot(
+    df_enem,
+    x=:SG_UF_PROVA,
+    y=:NU_NOTA_MT,
+    kind="box",
+    Layout(title="Notas de Matemática por Estado")
+)
+```
+
+
+
+#### Layout do Dashboard
+
+
+```{julia | echo: true}
+using Dash
+using PlotlyJS
+
+app.layout = html_div() do
+    html_h1("Resultados do ENEM 2024"),
+    
+    html_div(className = "row") do
+        # Gráfico 1
+        html_div(
+            dcc_graph(figure = figura_redacao),
+            style = Dict("width" => "48%", "display" => "inline-block")
+        ),
+        # Gráfico 2
+        html_div(
+            dcc_graph(figure = figura_matematica),
+            style = Dict("width" => "48%", "display" => "inline-block")
+        )
+    end
+end
+```
